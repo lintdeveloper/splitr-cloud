@@ -16,13 +16,20 @@ main.use(express.urlencoded());
 
 //initialize the database and the collection 
 const db = admin.firestore();
-const userCollection = 'user';
+const usersCollection = 'user';
+const groupCollection = 'group';
 
 interface User {
-    firstName: String,
-    lastName: String,
-    photoUrl: String,
-    email: String
+    firstName: string,
+    lastName: string,
+    photoUrl: string,
+    email: string
+}
+
+interface Group {
+    name: string,
+    amount: number,
+    readonly creationDate: number;
 }
 
 // Register an account
@@ -30,7 +37,7 @@ app.post('/register', async (req, res) => {
     try { 
         const {firstName, lastName, email, photoUrl} = req.body;
         
-        const user = await db.collection(userCollection).doc(email).get()
+        const user = await db.collection(usersCollection).doc(email).get()
     
         if(user.exists)      
             res.status(400).send({
@@ -45,7 +52,7 @@ app.post('/register', async (req, res) => {
             email: email,
             photoUrl: photoUrl
         }
-        await db.collection(userCollection).doc(email).set(newUser);
+        await db.collection(usersCollection).doc(email).set(newUser);
         
         res.status(201).send({
             status: true,
@@ -64,7 +71,7 @@ app.post('/login', async (req, res, next) => {
     try { 
         const {firstName, lastName, email, photoUrl} = req.body;
         
-        const userRef = db.collection(userCollection).doc(email);
+        const userRef = db.collection(usersCollection).doc(email);
         const user = await userRef.get()
 
         if (user.exists) {
@@ -95,7 +102,36 @@ app.post('/login', async (req, res, next) => {
             message: "Unable to login check your credentials and try again"
         })
     }
-})
+});
+
+
+// Create a Split group
+app.post('/users/group', async (req, res, next) => {
+    try {
+        //create group name, amount, creationDate
+        const {name, amount, email} = req.body;
+        const newGroup: Group = {
+            name: name,
+            amount: amount, //amount in the least currency
+            creationDate: Date.now()
+        }
+
+        const userRef = db.collection(usersCollection).doc(email);
+        const groupRef = userRef.collection(groupCollection).doc(newGroup.name);    
+        await groupRef.set(newGroup);
+    
+        res.status(201).send({
+            status: true,
+            message: "Group created successfully !!!"
+        });
+
+    } catch (error) {
+        res.status(400).send({
+            staus: false,
+            message: "Unable to create group"
+        })
+    }
+});
 
 //define google cloud function name
 export const test = functions.https.onRequest(main);
