@@ -35,9 +35,12 @@ interface Group {
 }
 
 interface Member {
-    email: string,
+    email ?: string,
     amount: number,
-    readonly creationDate: number;
+    readonly creationDate: number,
+    firstName ?: string,
+    lastName ?: string,
+    photoUrl ?: string
 }
 
 // Register an account
@@ -126,12 +129,29 @@ app.post('/users/groups', async (req, res, next) => {
         }
 
         const userRef = db.collection(usersCollection).doc(mainMail);
-        const groupRef = userRef.collection(groupsCollection).doc(newGroup.name);    
+        const groupRef = userRef.collection(groupsCollection).doc(newGroup.name.toLowerCase().trim());    
         await groupRef.set(newGroup);
+        
+        const userData = await db.collection(usersCollection).get();
+        let users: object = {};
+
+        userData.forEach( (doc) => {
+            users = doc.data()
+        });
+
+        const defaultMember: Member = {
+            amount: 1000,
+            creationDate: Date.now(),
+            ...users
+        }
+
+        const membersRef = groupRef.collection(membersCollection).doc(mainMail);
+        await membersRef.set(defaultMember);
+
     
         res.status(201).send({
             status: true,
-            message: "Group created successfully !!!"
+            message: "Group created successfully !!!",
         });
 
     } catch (error) {
