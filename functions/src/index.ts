@@ -117,42 +117,52 @@ app.post('/login', async (req, res, next) => {
 
 
 // Create a Split group
-app.post('/users/groups', async (req, res, next) => {
+app.post('/users/:email/groups', async (req, res, next) => {
     try {
         //create group name, amount, creationDate
-        const mainMail = "musabrillz@gmail.com";  // supposed to be gotten from token
+        const {email} = req.params;  // supposed to be gotten from token
         const {name, amount} = req.body;
-        const newGroup: Group = {
-            name: name,
-            amount: amount, //amount in the least currency
-            creationDate: Date.now()
-        }
 
-        const userRef = db.collection(usersCollection).doc(mainMail);
-        const groupRef = userRef.collection(groupsCollection).doc(newGroup.name.toLowerCase().trim());    
-        await groupRef.set(newGroup);
+        const userRef = db.collection(usersCollection).doc(email);
+        const user = await userRef.get()
+
+        if(user.exists){
+            const newGroup: Group = {
+                name: name,
+                amount: amount, //amount in the least currency
+                creationDate: Date.now()
+            }
+
+            const groupRef = userRef.collection(groupsCollection).doc(newGroup.name.toLowerCase().trim());    
+                 await groupRef.set(newGroup);
+            
+            const userData = await db.collection(usersCollection).get();
+            let users: object = {};
+
+            userData.forEach( (doc) => {
+                users = doc.data()
+            });
+
+            const defaultMember: Member = {
+                amount: 1000,
+                creationDate: Date.now(),
+                ...users
+            }
+
+            const membersRef = groupRef.collection(membersCollection).doc(email);
+            await membersRef.set(defaultMember);
+
         
-        const userData = await db.collection(usersCollection).get();
-        let users: object = {};
-
-        userData.forEach( (doc) => {
-            users = doc.data()
-        });
-
-        const defaultMember: Member = {
-            amount: 1000,
-            creationDate: Date.now(),
-            ...users
+            res.status(201).send({
+                status: true,
+                message: "Group created successfully !!!",
+            });
+        } else {
+            res.status(400).send({
+                staus: false,
+                message: "User does not exist"
+            })
         }
-
-        const membersRef = groupRef.collection(membersCollection).doc(mainMail);
-        await membersRef.set(defaultMember);
-
-    
-        res.status(201).send({
-            status: true,
-            message: "Group created successfully !!!",
-        });
 
     } catch (error) {
         res.status(400).send({
