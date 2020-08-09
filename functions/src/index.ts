@@ -16,8 +16,10 @@ main.use(express.urlencoded());
 
 //initialize the database and the collection 
 const db = admin.firestore();
-const usersCollection = 'user';
-const groupCollection = 'group';
+const usersCollection = 'users';
+const groupsCollection = 'groups';
+const membersCollection = 'members';
+
 
 interface User {
     firstName: string,
@@ -28,6 +30,12 @@ interface User {
 
 interface Group {
     name: string,
+    amount: number,
+    readonly creationDate: number;
+}
+
+interface Member {
+    email: string,
     amount: number,
     readonly creationDate: number;
 }
@@ -106,18 +114,19 @@ app.post('/login', async (req, res, next) => {
 
 
 // Create a Split group
-app.post('/users/group', async (req, res, next) => {
+app.post('/users/groups', async (req, res, next) => {
     try {
         //create group name, amount, creationDate
-        const {name, amount, email} = req.body;
+        const mainMail = "musabrillz@gmail.com";  // supposed to be gotten from token
+        const {name, amount} = req.body;
         const newGroup: Group = {
             name: name,
             amount: amount, //amount in the least currency
             creationDate: Date.now()
         }
 
-        const userRef = db.collection(usersCollection).doc(email);
-        const groupRef = userRef.collection(groupCollection).doc(newGroup.name);    
+        const userRef = db.collection(usersCollection).doc(mainMail);
+        const groupRef = userRef.collection(groupsCollection).doc(newGroup.name);    
         await groupRef.set(newGroup);
     
         res.status(201).send({
@@ -132,6 +141,68 @@ app.post('/users/group', async (req, res, next) => {
         })
     }
 });
+
+app.post('/users/groups/:groupName/members', async (req, res, next) => {
+    try {
+      //add member to a group
+      const { groupName } = req.params;
+      const {memberEmail, amount} = req.body;
+      const mainUser = "musabrillz@gmail.com";
+
+      const memberUserRef = db.collection(usersCollection).doc(memberEmail);
+      const mainUserRef = db.collection(usersCollection).doc(mainUser)
+      const user = await memberUserRef.get()
+
+      const newMember: Member = {
+          amount: amount,
+          email: memberEmail,
+          creationDate: Date.now()
+      }
+
+      if (user.exists) {
+            const groupRef = mainUserRef.collection(groupsCollection).doc(groupName);
+            const group = await groupRef.get();
+
+            if (group.exists) {
+                const memberRef = groupRef.collection(membersCollection).doc(memberEmail);
+                const member = await memberRef.get();
+
+                if (member.exists) {
+                    res.status(400).send({
+                        status: false,
+                        message: "Member is already available in the group add another member"
+                    });  
+                } else {
+                    // adds a new member to the group
+                    const membersRef = groupRef.collection(membersCollection).doc(memberEmail)
+                    const _member = await membersRef.set(newMember);
+
+                    res.status(201).send({
+                        status: true,
+                        message: "Member successfully added",
+                        data: _member
+                    });  
+                }
+            } else {
+                res.status(400).send({
+                    status: false,
+                    message: "Group doesn\'t exist"
+                });
+            }
+          // group exists 
+      } else {
+            res.status(400).send({
+                status: false,
+                message: "User doesn\'t exist"
+            });
+      }
+    } catch (error) {
+        res.status(400).send({
+            staus: false,
+            message: "Unable to add member"
+        })
+    }
+})
 
 //define google cloud function name
 export const test = functions.https.onRequest(main);
