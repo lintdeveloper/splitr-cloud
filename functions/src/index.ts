@@ -144,7 +144,7 @@ app.post('/users/:email/groups', async (req, res, next) => {
             });
 
             const defaultMember: Member = {
-                amount: 1000,
+                amount: amount,
                 creationDate: Date.now(),
                 ...users
             }
@@ -172,12 +172,11 @@ app.post('/users/:email/groups', async (req, res, next) => {
     }
 });
 
-app.post('/users/groups/:groupName/members', async (req, res, next) => {
+app.post('/users/:mainUser/groups/:groupName/members', async (req, res, next) => {
     try {
       //add member to a group
-      const { groupName } = req.params;
+      const { groupName, mainUser } = req.params;
       const {memberEmail, amount} = req.body;
-      const mainUser = "musabrillz@gmail.com";
 
       const memberUserRef = db.collection(usersCollection).doc(memberEmail);
       const mainUserRef = db.collection(usersCollection).doc(mainUser)
@@ -233,6 +232,8 @@ app.post('/users/groups/:groupName/members', async (req, res, next) => {
         })
     }
 })
+
+
 
 //define google cloud function name
 export const test = functions.https.onRequest(main);
